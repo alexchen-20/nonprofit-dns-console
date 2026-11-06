@@ -5,13 +5,13 @@ export INFRAI_API_KEY="your-key"
 go run .
 ```
 
-Open `http://localhost:8080`. This form syncs delivery records for donor receipts, volunteer reminders, and campaign reporting. Infrai exposes this behind one API with a single `INFRAI_API_KEY`; this executable talks over plain HTTP and does not require an SDK.
+Open `http://localhost:8080`. This form syncs delivery records for donor receipts, volunteer reminders, and campaign reporting. Infrai keeps it behind one API with a single `INFRAI_API_KEY`; this executable talks over plain HTTP and does not require an SDK.
 
 ## The sync contract
 
-Provide a managed domain, a receipt mail server, a volunteer portal target, and a campaign report token. The service starts by calling `GET /v1/dns/domain/get` for the domain and reading `zone_id`. Every record write after that uses the returned zone identifier.
+Provide a managed domain, a receipt mail server, a volunteer portal target, and a campaign report token. The service first calls `GET /v1/dns/domain/get` for the domain and reads `zone_id`. Every record change after that uses the returned zone identifier.
 
-The final record set stays intentionally small:
+The resulting record set stays intentionally small:
 
 | Program concern | DNS decision |
 | --- | --- |
@@ -19,7 +19,7 @@ The final record set stays intentionally small:
 | Volunteer reminders | `CNAME volunteer`, five-minute TTL |
 | Campaign reporting | `TXT _campaign-report`, five-minute TTL |
 
-Writes go through `PUT /v1/dns/record/upsert` with an idempotency header built from the zone, record type, and name. If the service rate-limits, it honors `Retry-After` when present and falls back to exponential delay otherwise. The client unwraps the Infrai envelope before it looks at the HTTP status, so normal rejected inputs keep their API status when they reach the admin boundary.
+Writes go through `PUT /v1/dns/record/upsert` with an idempotency header built from the zone, record type, and name. If the API rate-limits, the client honors `Retry-After` when present and falls back to exponential delay otherwise. The client unwraps the Infrai envelope before checking the HTTP status, so normal rejected inputs keep their API status at the admin boundary.
 
 Inspect the active record payload after a sync:
 
@@ -43,11 +43,11 @@ The focused table test begins with `giving.example.org`, receipt host `mail.exam
 go test ./...
 ```
 
-The companion workflow test checks that domain lookup happens before any writes and that every upsert gets the resolved `zone_id`.
+The companion workflow test checks that domain lookup happens before any writes and that each upsert gets the resolved `zone_id`.
 
 ## Wiring it up for real: Nonprofit DNS Console
 
-Quick start is above. For a real deployment, you will also need the following. These details apply to Nonprofit DNS Console.
+The quick start is above. For a real deployment you will also need the following. These details are specific to Nonprofit DNS Console.
 
 **Account & key**
 
